@@ -49,7 +49,9 @@ main = do
       GLFW.windowHint $ WindowHint'ContextVersionMinor 2
       GLFW.windowHint $ WindowHint'OpenGLForwardCompat True
       GLFW.windowHint $ WindowHint'OpenGLProfile OpenGLProfile'Core
-      mw <- GLFW.createWindow 400 400 "Improviz" Nothing Nothing
+      let sW = 640
+          sH = 480
+      mw <- GLFW.createWindow sW sH "Improviz" Nothing Nothing
       maybe' mw (GLFW.terminate >> exitFailure) $ \window -> do
         GLFW.makeContextCurrent mw
         cvma <- getWindowContextVersionMajor window
@@ -61,7 +63,7 @@ main = do
             ShaderInfo FragmentShader (FileSource "shaders/triangles.frag")]
         currentProgram $= Just program
         cube <- cubeVAO
-        let proj = projectionMat 0.1 100 (pi/4) 1
+        let proj = projectionMat 0.1 100 (pi/4) (fromIntegral sW / fromIntegral sH)
             view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
             vpMat = multmm proj view
         display cube vpMat program window
