@@ -76,9 +76,13 @@ display cube vpMat progId w = unless' (GLFW.windowShouldClose w) $
   do
     (width, height) <- GLFW.getFramebufferSize w
     viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
+    Just t <- GLFW.getTime
+    let time = realToFrac t
     clear [ ColorBuffer, DepthBuffer ]
+    let modelMat = rotMat time time time
+    let mvpMat = multmm vpMat modelMat
     (UniformLocation mpMatUniform) <- GL.get $ uniformLocation progId "MPMat"
-    with vpMat
+    with mvpMat
       $ GLRaw.glUniformMatrix4fv mpMatUniform 1 (fromBool True)
       . castPtr
     let (VAO bo bai bn) = cube

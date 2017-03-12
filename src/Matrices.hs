@@ -24,3 +24,6 @@ lookAt eye target up = x :. y :. z :. h :. ()
     y = snoc up' (-(dot up' eye))
     z = snoc (-forward) (dot forward eye)
     h = 0 :. 0 :. 0 :. 1 :. ()
+
+rotMat :: Float -> Float -> Float -> Mat44 Float
+rotMat xRot yRot zRot = rotationEuler $ xRot :. yRot :. zRot :. ()
