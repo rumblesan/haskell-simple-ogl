@@ -1,10 +1,14 @@
 #version 410 core
 
 layout(location = 0) in vec4 vPosition;
-uniform mat4 MPMat;
+uniform vec4 vertexColor;
+
+uniform mat4 MVPMat;
+out vec4 fragmentColor;
 
 void
 main()
 {
-   gl_Position = MPMat * vPosition;
+  fragmentColor = vertexColor;
+  gl_Position = MVPMat * vPosition;
 }

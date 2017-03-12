@@ -81,9 +81,12 @@ display cube vpMat progId w = unless' (GLFW.windowShouldClose w) $
     clear [ ColorBuffer, DepthBuffer ]
     let modelMat = rotMat time time time
     let mvpMat = multmm vpMat modelMat
-    (UniformLocation mpMatUniform) <- GL.get $ uniformLocation progId "MPMat"
+    colourU <- GL.get $ uniformLocation progId "vertexColor"
+    let c = Vertex4 0.0 1.0 0.5 1.0 :: Vertex4 GLfloat
+    uniform colourU $= c
+    (UniformLocation mvpMatUniform) <- GL.get $ uniformLocation progId "MVPMat"
     with mvpMat
-      $ GLRaw.glUniformMatrix4fv mpMatUniform 1 (fromBool True)
+      $ GLRaw.glUniformMatrix4fv mvpMatUniform 1 (fromBool True)
       . castPtr
     let (VAO bo bai bn) = cube
 
