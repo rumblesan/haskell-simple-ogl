@@ -73,17 +73,8 @@ display :: VAO -> Mat44 GLfloat -> Program -> GLFW.Window -> IO ()
 display cube vpMat progId w = unless' (GLFW.windowShouldClose w) $
   do
     (width, height) <- GLFW.getFramebufferSize w
-    let ratio = fromIntegral width / fromIntegral height
     viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
-
     clear [ ColorBuffer, DepthBuffer ]
-
-    matrixMode $= Projection
-    loadIdentity
-    ortho (negate ratio) ratio (negate 1.0) 1.0 1.0 (negate 1.0)
-    matrixMode $= Modelview 0
-
-    loadIdentity
     (UniformLocation mpMatUniform) <- GL.get $ uniformLocation progId "MPMat"
     with vpMat
       $ GLRaw.glUniformMatrix4fv mpMatUniform 1 (fromBool True)
