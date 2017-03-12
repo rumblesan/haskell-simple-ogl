@@ -1,14 +1,21 @@
 module Main where
 
+import Data.Vec
+
 import Graphics.UI.GLFW as GLFW
-import Graphics.Rendering.OpenGL
+import Graphics.Rendering.OpenGL as GL
+import qualified Graphics.GL as GLRaw
 import System.Exit
 import System.IO
+
+import Foreign.Marshal.Utils
+import Foreign.Ptr
 
 import Control.Monad
 
 import GeometryBuffers
 import LoadShaders
+import Matrices
 
 
 bool :: Bool -> a -> a -> a
@@ -27,7 +34,7 @@ maybe' m nothingRes f = case m of
 
 -- type ErrorCallback = Error -> String -> IO ()
 errorCallback :: GLFW.ErrorCallback
-errorCallback err description = hPutStrLn stderr description
+errorCallback _ = hPutStrLn stderr
 
 
 main :: IO ()
@@ -54,13 +61,16 @@ main = do
             ShaderInfo FragmentShader (FileSource "shaders/triangles.frag")]
         currentProgram $= Just program
         cube <- cubeVAO
-        display cube window
+        let proj = projectionMat 0.1 100 (pi/4) 1
+            view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
+            vpMat = multmm proj view
+        display cube vpMat program window
         GLFW.destroyWindow window
         GLFW.terminate
         exitSuccess
 
-display :: VAO -> GLFW.Window -> IO ()
-display cube w = unless' (GLFW.windowShouldClose w) $
+display :: VAO -> Mat44 GLfloat -> Program -> GLFW.Window -> IO ()
+display cube vpMat progId w = unless' (GLFW.windowShouldClose w) $
   do
     (width, height) <- GLFW.getFramebufferSize w
     let ratio = fromIntegral width / fromIntegral height
@@ -74,6 +84,10 @@ display cube w = unless' (GLFW.windowShouldClose w) $
     matrixMode $= Modelview 0
 
     loadIdentity
+    (UniformLocation mpMatUniform) <- GL.get $ uniformLocation progId "MPMat"
+    with vpMat
+      $ GLRaw.glUniformMatrix4fv mpMatUniform 1 (fromBool True)
+      . castPtr
     let (VAO bo bai bn) = cube
 
     bindVertexArrayObject $= Just bo
@@ -81,4 +95,4 @@ display cube w = unless' (GLFW.windowShouldClose w) $
 
     GLFW.swapBuffers w
     GLFW.pollEvents
-    display cube w
+    display cube vpMat progId w
