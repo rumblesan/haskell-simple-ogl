@@ -58,6 +58,7 @@ main = do
         cvmi <- getWindowContextVersionMinor window
         cvr <- getWindowContextVersionRevision window
         print (cvma, cvmi, cvr)
+        depthFunc $= Just Less
         program <- loadShaders [
             ShaderInfo VertexShader (FileSource "shaders/triangles.vert"),
             ShaderInfo FragmentShader (FileSource "shaders/triangles.frag")]
