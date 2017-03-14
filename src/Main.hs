@@ -74,8 +74,6 @@ main = do
 display :: VAO -> Mat44 GLfloat -> Program -> GLFW.Window -> IO ()
 display cube vpMat progId w = unless' (GLFW.windowShouldClose w) $
   do
-    (width, height) <- GLFW.getFramebufferSize w
-    viewport $= (Position 0 0, Size (fromIntegral width) (fromIntegral height))
     Just t <- GLFW.getTime
     let time = realToFrac t
     clear [ ColorBuffer, DepthBuffer ]
