@@ -60,9 +60,9 @@ main = do
         print (cvma, cvmi, cvr)
         depthFunc $= Just Less
         program <- loadShaders [
-            ShaderInfo VertexShader (FileSource "shaders/triangles.vert"),
-            ShaderInfo FragmentShader (FileSource "shaders/triangles.frag")]
         currentProgram $= Just program
+            ShaderInfo VertexShader (FileSource "shaders/simple3d.vert"),
+            ShaderInfo FragmentShader (FileSource "shaders/simple3d.frag")]
         cube <- cubeVAO
         let proj = projectionMat 0.1 100 (pi/4) (fromIntegral sW / fromIntegral sH)
             view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
