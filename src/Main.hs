@@ -16,6 +16,7 @@ import Control.Monad
 import GeometryBuffers
 import LoadShaders
 import Matrices
+import PostProcessing
 
 
 bool :: Bool -> a -> a -> a
@@ -60,24 +61,28 @@ main = do
         print (cvma, cvmi, cvr)
         depthFunc $= Just Less
         program <- loadShaders [
-        currentProgram $= Just program
             ShaderInfo VertexShader (FileSource "shaders/simple3d.vert"),
             ShaderInfo FragmentShader (FileSource "shaders/simple3d.frag")]
+        post <- createPostProcessing (fromIntegral sW) (fromIntegral sH)
         cube <- cubeVAO
         let proj = projectionMat 0.1 100 (pi/4) (fromIntegral sW / fromIntegral sH)
             view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
             vpMat = multmm proj view
-        display cube vpMat program window
+        display cube vpMat program post window
         GLFW.destroyWindow window
         GLFW.terminate
         exitSuccess
 
-display :: VAO -> Mat44 GLfloat -> Program -> GLFW.Window -> IO ()
-display cube vpMat progId w = unless' (GLFW.windowShouldClose w) $
+display :: VAO -> Mat44 GLfloat -> Program -> PostProcessing -> GLFW.Window -> IO ()
+display cube vpMat progId post w = unless' (GLFW.windowShouldClose w) $
   do
     Just t <- GLFW.getTime
     let time = realToFrac t
+    bindFramebuffer Framebuffer $= frameBuffer post
     clear [ ColorBuffer, DepthBuffer ]
+
+
+    currentProgram $= Just progId
     let modelMat = rotMat time time time
     let mvpMat = multmm vpMat modelMat
     colourU <- GL.get $ uniformLocation progId "vertexColor"
@@ -88,10 +93,20 @@ display cube vpMat progId w = unless' (GLFW.windowShouldClose w) $
       $ GLRaw.glUniformMatrix4fv mvpMatUniform 1 (fromBool True)
       . castPtr
     let (VAO bo bai bn) = cube
-
     bindVertexArrayObject $= Just bo
     drawArrays Triangles bai bn
 
+
+    bindFramebuffer Framebuffer $= defaultFrameBuffer post
+    clear [ ColorBuffer, DepthBuffer ]
+    currentProgram $= Just (postShaders post)
+
+    let (VAO qbo qbai qbn) = renderQuadVAO post
+    bindVertexArrayObject $= Just qbo
+
+
+    drawArrays Triangles qbai qbn
+
     GLFW.swapBuffers w
     GLFW.pollEvents
-    display cube vpMat progId w
+    display cube vpMat progId post w
