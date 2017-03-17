@@ -1,6 +1,6 @@
 module PostProcessing where
 
-import Graphics.Rendering.OpenGL
+import Graphics.Rendering.OpenGL as GL
 
 import Foreign.Marshal.Array
 import Foreign.Storable
@@ -59,6 +59,7 @@ createPostProcessing width height = do
   bindFramebuffer Framebuffer $= fbo
   text <- genObjectName
   textureBinding Texture2D $= Just text
+  GL.textureFilter GL.Texture2D $= ((GL.Linear', Nothing), GL.Linear')
   let pd = PixelData RGB UnsignedByte nullPtr
   texImage2D Texture2D NoProxy 0 RGB' (TextureSize2D width height) 0 pd
   framebufferTexture2D Framebuffer (ColorAttachment 0) Texture2D text 0
