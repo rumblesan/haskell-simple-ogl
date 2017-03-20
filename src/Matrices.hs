@@ -27,3 +27,6 @@ lookAt eye target up = x :. y :. z :. h :. ()
 
 rotMat :: Float -> Float -> Float -> Mat44 Float
 rotMat xRot yRot zRot = rotationEuler $ xRot :. yRot :. zRot :. ()
+
+transMat :: Float -> Float -> Float -> Mat44 Float
+transMat xT yT zT = translation $ vec3 xT yT zT
