@@ -21,13 +21,13 @@ data PostProcessing = PostProcessing {
 -- 2D positions and texture coordinates
 quadVertices :: [GLfloat]
 quadVertices = [
-    -1,  1, 0, 0,  0,
-    -1, -1, 0, 0,  1,
-     1,  1, 0, 1,  0,
+    -1,  1, 0, 0,  1,
+    -1, -1, 0, 0,  0,
+     1,  1, 0, 1,  1,
 
-     1,  1, 0, 1,  0,
-    -1, -1, 0, 0,  1,
-     1, -1, 0, 1,  1
+     1,  1, 0, 1,  1,
+    -1, -1, 0, 0,  0,
+     1, -1, 0, 1,  0
   ]
 
 quadVAO :: IO VAO
