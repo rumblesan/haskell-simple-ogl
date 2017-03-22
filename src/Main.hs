@@ -54,6 +54,7 @@ main = do
           sH = 480
       mw <- GLFW.createWindow sW sH "Improviz" Nothing Nothing
       maybe' mw (GLFW.terminate >> exitFailure) $ \window -> do
+        (width, height) <- GLFW.getFramebufferSize window
         GLFW.makeContextCurrent mw
         cvma <- getWindowContextVersionMajor window
         cvmi <- getWindowContextVersionMinor window
@@ -63,9 +64,9 @@ main = do
         program <- loadShaders [
             ShaderInfo VertexShader (FileSource "shaders/simple3d.vert"),
             ShaderInfo FragmentShader (FileSource "shaders/simple3d.frag")]
-        post <- createPostProcessing (fromIntegral sW) (fromIntegral sH)
+        post <- createPostProcessing (fromIntegral width) (fromIntegral height)
         cube <- cubeVAO
-        let proj = projectionMat 0.1 100 (pi/4) (fromIntegral sW / fromIntegral sH)
+        let proj = projectionMat 0.1 100 (pi/4) (fromIntegral width / fromIntegral height)
             view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
             vpMat = multmm proj view
         display cube vpMat program post window
