@@ -79,10 +79,10 @@ display cube vpMat progId post w = unless' (GLFW.windowShouldClose w) $
   do
     Just t <- GLFW.getTime
     let time = realToFrac t
-    bindFramebuffer Framebuffer $= frameBuffer post
+
+    useSavebuffer (savebuffer post)
+
     clear [ ColorBuffer, DepthBuffer ]
-
-
     currentProgram $= Just progId
     let modelMat = rotMat time time time
     let mvpMat = multmm vpMat modelMat
@@ -97,16 +97,7 @@ display cube vpMat progId post w = unless' (GLFW.windowShouldClose w) $
     bindVertexArrayObject $= Just bo
     drawArrays Triangles bai bn
 
-
-    bindFramebuffer Framebuffer $= defaultFrameBuffer post
-    clear [ ColorBuffer, DepthBuffer ]
-    currentProgram $= Just (postShaders post)
-
-    let (VAO qbo qbai qbn) = renderQuadVAO post
-    bindVertexArrayObject $= Just qbo
-
-
-    drawArrays Triangles qbai qbn
+    renderSavebuffer (savebuffer post)
 
     GLFW.swapBuffers w
     GLFW.pollEvents

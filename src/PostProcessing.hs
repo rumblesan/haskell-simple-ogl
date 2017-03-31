@@ -10,13 +10,11 @@ import LoadShaders
 import GeometryBuffers
 
 data PostProcessing = PostProcessing {
-  defaultFrameBuffer :: FramebufferObject,
-  frameBuffer :: FramebufferObject,
-  textO :: TextureObject,
-  rbuff :: RenderbufferObject,
-  postShaders :: Program,
-  renderQuadVAO :: VAO
+  savebuffer :: Savebuffer
 }
+
+-- Simple Framebuffer with a texture that can be rendered to and then drawn out to a quad
+data Savebuffer = Savebuffer FramebufferObject TextureObject RenderbufferObject Program VAO
 
 -- 2D positions and texture coordinates
 quadVertices :: [GLfloat]
@@ -53,24 +51,61 @@ quadVAO = do
   vertexAttribArray vTexCoord $= Enabled
   return $ VAO vao firstPosIndex 6
 
-createPostProcessing :: GLint -> GLint -> IO PostProcessing
-createPostProcessing width height = do
-  fbo <- genObjectName
-  bindFramebuffer Framebuffer $= fbo
+
+create2DTexture :: GLint -> GLint -> IO TextureObject
+create2DTexture width height = do
   text <- genObjectName
   textureBinding Texture2D $= Just text
   GL.textureFilter GL.Texture2D $= ((GL.Linear', Nothing), GL.Linear')
   let pd = PixelData RGB UnsignedByte nullPtr
   texImage2D Texture2D NoProxy 0 RGB' (TextureSize2D width height) 0 pd
-  framebufferTexture2D Framebuffer (ColorAttachment 0) Texture2D text 0
+  textureBinding Texture2D $= Nothing
+  return text
+
+createRenderbuffer :: GLint -> GLint -> IO RenderbufferObject
+createRenderbuffer width height = do
   rbo <- genObjectName
   bindRenderbuffer Renderbuffer $= rbo
   renderbufferStorage Renderbuffer DepthComponent24 (RenderbufferSize width height)
   framebufferRenderbuffer Framebuffer DepthAttachment Renderbuffer rbo
+  bindRenderbuffer Renderbuffer $= noRenderbufferObject
+  return rbo
+
+createPostProcessing :: GLint -> GLint -> IO PostProcessing
+createPostProcessing width height = do
+  saveBuffer <- createSavebuffer width height
+  return $ PostProcessing saveBuffer
+
+
+createSavebuffer :: GLint -> GLint -> IO Savebuffer
+createSavebuffer width height = do
+  fbo <- genObjectName
+  bindFramebuffer Framebuffer $= fbo
+
+  text <- create2DTexture width height
+  framebufferTexture2D Framebuffer (ColorAttachment 0) Texture2D text 0
+
+  rbo <- createRenderbuffer width height
 
   qvao <- quadVAO
   program <- loadShaders [
-    ShaderInfo VertexShader (FileSource "shaders/postprocessing.vert"),
-    ShaderInfo FragmentShader (FileSource "shaders/postprocessing.frag")]
+    ShaderInfo VertexShader (FileSource "shaders/savebuffer.vert"),
+    ShaderInfo FragmentShader (FileSource "shaders/savebuffer.frag")]
 
-  return $ PostProcessing defaultFramebufferObject fbo text rbo program qvao
+  return $ Savebuffer fbo text rbo program qvao
+
+useSavebuffer :: Savebuffer -> IO ()
+useSavebuffer (Savebuffer fbo _ _ _ _) = bindFramebuffer Framebuffer $= fbo
+
+renderSavebuffer :: Savebuffer -> IO ()
+renderSavebuffer (Savebuffer _ text _ program quadVAO) = do
+  bindFramebuffer Framebuffer $= defaultFramebufferObject
+  textureBinding Texture2D $= Just text
+  clear [ ColorBuffer, DepthBuffer ]
+  currentProgram $= Just program
+  let (VAO qbo qbai qbn) = quadVAO
+  bindVertexArrayObject $= Just qbo
+  drawArrays Triangles qbai qbn
+
+
+
