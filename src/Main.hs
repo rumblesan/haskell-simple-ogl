@@ -74,31 +74,34 @@ main = do
         GLFW.terminate
         exitSuccess
 
+
+renderScene :: VAO -> Mat44 GLfloat -> Program -> IO ()
+renderScene cube vpMat progId = do
+  Just t <- GLFW.getTime
+  let time = realToFrac t
+  clear [ ColorBuffer, DepthBuffer ]
+  currentProgram $= Just progId
+  let modelMat = rotMat time time time
+  let mvpMat = multmm vpMat modelMat
+  colourU <- GL.get $ uniformLocation progId "vertexColor"
+  let c = Color4 1.0 1.0 0.5 1.0 :: Color4 GLfloat
+  uniform colourU $= c
+  (UniformLocation mvpMatUniform) <- GL.get $ uniformLocation progId "MVPMat"
+  with mvpMat
+    $ GLRaw.glUniformMatrix4fv mvpMatUniform 1 (fromBool True)
+    . castPtr
+  let (VAO bo bai bn) = cube
+  bindVertexArrayObject $= Just bo
+  drawArrays Triangles bai bn
+
+
 display :: VAO -> Mat44 GLfloat -> Program -> PostProcessing -> GLFW.Window -> IO ()
 display cube vpMat progId post w = unless' (GLFW.windowShouldClose w) $
   do
-    Just t <- GLFW.getTime
-    let time = realToFrac t
 
     useSavebuffer (savebuffer post)
-
-    clear [ ColorBuffer, DepthBuffer ]
-    currentProgram $= Just progId
-    let modelMat = rotMat time time time
-    let mvpMat = multmm vpMat modelMat
-    colourU <- GL.get $ uniformLocation progId "vertexColor"
-    let c = Color4 1.0 1.0 0.5 1.0 :: Color4 GLfloat
-    uniform colourU $= c
-    (UniformLocation mvpMatUniform) <- GL.get $ uniformLocation progId "MVPMat"
-    with mvpMat
-      $ GLRaw.glUniformMatrix4fv mvpMatUniform 1 (fromBool True)
-      . castPtr
-    let (VAO bo bai bn) = cube
-    bindVertexArrayObject $= Just bo
-    drawArrays Triangles bai bn
-
+    renderScene cube vpMat progId
     renderSavebuffer (savebuffer post)
-
     GLFW.swapBuffers w
     GLFW.pollEvents
     display cube vpMat progId post w
