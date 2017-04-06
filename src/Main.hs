@@ -69,6 +69,7 @@ main = do
         let proj = projectionMat 0.1 100 (pi/4) (fromIntegral width / fromIntegral height)
             view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
             vpMat = multmm proj view
+        clearColor $= Color4 0.0 0.0 0.0 0.0
         display cube vpMat program post window
         GLFW.destroyWindow window
         GLFW.terminate
@@ -79,9 +80,10 @@ renderScene :: VAO -> Mat44 GLfloat -> Program -> IO ()
 renderScene cube vpMat progId = do
   Just t <- GLFW.getTime
   let time = realToFrac t
+
   clear [ ColorBuffer, DepthBuffer ]
   currentProgram $= Just progId
-  let modelMat = rotMat time time time
+  let modelMat = multmm (rotMat time time time) (transMat 1.0 1.0 1.0)
   let mvpMat = multmm vpMat modelMat
   colourU <- GL.get $ uniformLocation progId "vertexColor"
   let c = Color4 1.0 1.0 0.5 1.0 :: Color4 GLfloat
@@ -99,9 +101,11 @@ display :: VAO -> Mat44 GLfloat -> Program -> PostProcessing -> GLFW.Window -> I
 display cube vpMat progId post w = unless' (GLFW.windowShouldClose w) $
   do
 
-    useSavebuffer (savebuffer post)
+    usePostProcessing post
+    depthFunc $= Just Less
     renderScene cube vpMat progId
-    renderSavebuffer (savebuffer post)
+    renderPostProcessing post PaintOver
+
     GLFW.swapBuffers w
     GLFW.pollEvents
     display cube vpMat progId post w

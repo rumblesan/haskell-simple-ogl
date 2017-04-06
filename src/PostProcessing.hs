@@ -9,12 +9,18 @@ import Foreign.Ptr
 import LoadShaders
 import GeometryBuffers
 
+data AnimationStyle = NormalStyle | MotionBlur | PaintOver deriving (Eq, Show)
+
 data PostProcessing = PostProcessing {
-  savebuffer :: Savebuffer
+  input :: Savebuffer,
+  motionBlur :: Mixbuffer,
+  paintOver :: Mixbuffer,
+  output :: Savebuffer
 }
 
 -- Simple Framebuffer with a texture that can be rendered to and then drawn out to a quad
-data Savebuffer = Savebuffer FramebufferObject TextureObject RenderbufferObject Program VAO
+data Savebuffer = Savebuffer FramebufferObject TextureObject TextureObject Program VAO
+data Mixbuffer = Mixbuffer FramebufferObject TextureObject TextureObject Program VAO
 
 -- 2D positions and texture coordinates
 quadVertices :: [GLfloat]
@@ -62,19 +68,24 @@ create2DTexture width height = do
   textureBinding Texture2D $= Nothing
   return text
 
-createRenderbuffer :: GLint -> GLint -> IO RenderbufferObject
-createRenderbuffer width height = do
-  rbo <- genObjectName
-  bindRenderbuffer Renderbuffer $= rbo
-  renderbufferStorage Renderbuffer DepthComponent24 (RenderbufferSize width height)
-  framebufferRenderbuffer Framebuffer DepthAttachment Renderbuffer rbo
-  bindRenderbuffer Renderbuffer $= noRenderbufferObject
-  return rbo
+createDepthbuffer :: GLint -> GLint -> IO TextureObject
+createDepthbuffer width height = do
+  depth <- genObjectName
+  textureBinding Texture2D $= Just depth
+  GL.textureFilter GL.Texture2D $= ((GL.Linear', Nothing), GL.Linear')
+  let pd = PixelData DepthComponent UnsignedByte nullPtr
+  texImage2D Texture2D NoProxy 0 DepthComponent24 (TextureSize2D width height) 0 pd
+  framebufferTexture2D Framebuffer DepthAttachment Texture2D depth 0
+  textureBinding Texture2D $= Nothing
+  return depth
 
 createPostProcessing :: GLint -> GLint -> IO PostProcessing
 createPostProcessing width height = do
-  saveBuffer <- createSavebuffer width height
-  return $ PostProcessing saveBuffer
+  inputBuffer <- createSavebuffer width height
+  motionBlurBuffer <- createMotionBlurbuffer width height
+  paintOverBuffer <- createPaintOverbuffer width height
+  outputBuffer <- createSavebuffer width height
+  return $ PostProcessing inputBuffer motionBlurBuffer paintOverBuffer outputBuffer
 
 
 createSavebuffer :: GLint -> GLint -> IO Savebuffer
@@ -85,27 +96,130 @@ createSavebuffer width height = do
   text <- create2DTexture width height
   framebufferTexture2D Framebuffer (ColorAttachment 0) Texture2D text 0
 
-  rbo <- createRenderbuffer width height
+  depth <- createDepthbuffer width height
 
   qvao <- quadVAO
   program <- loadShaders [
     ShaderInfo VertexShader (FileSource "shaders/savebuffer.vert"),
     ShaderInfo FragmentShader (FileSource "shaders/savebuffer.frag")]
 
-  return $ Savebuffer fbo text rbo program qvao
+  return $ Savebuffer fbo text depth program qvao
 
-useSavebuffer :: Savebuffer -> IO ()
-useSavebuffer (Savebuffer fbo _ _ _ _) = bindFramebuffer Framebuffer $= fbo
+createMotionBlurbuffer :: GLint -> GLint -> IO Mixbuffer
+createMotionBlurbuffer width height = do
+  fbo <- genObjectName
+  bindFramebuffer Framebuffer $= fbo
+
+  text <- create2DTexture width height
+  framebufferTexture2D Framebuffer (ColorAttachment 0) Texture2D text 0
+
+  depth <- createDepthbuffer width height
+
+  qvao <- quadVAO
+  program <- loadShaders [
+    ShaderInfo VertexShader (FileSource "shaders/motionBlur.vert"),
+    ShaderInfo FragmentShader (FileSource "shaders/motionBlur.frag")]
+
+  return $ Mixbuffer fbo text depth program qvao
+
+
+createPaintOverbuffer :: GLint -> GLint -> IO Mixbuffer
+createPaintOverbuffer width height = do
+  fbo <- genObjectName
+  bindFramebuffer Framebuffer $= fbo
+
+  text <- create2DTexture width height
+  framebufferTexture2D Framebuffer (ColorAttachment 0) Texture2D text 0
+
+  depth <- createDepthbuffer width height
+
+  qvao <- quadVAO
+  program <- loadShaders [
+    ShaderInfo VertexShader (FileSource "shaders/paintOver.vert"),
+    ShaderInfo FragmentShader (FileSource "shaders/paintOver.frag")]
+
+  return $ Mixbuffer fbo text depth program qvao
+
+
+usePostProcessing :: PostProcessing -> IO ()
+usePostProcessing post = do
+  let (Savebuffer fbo _ _ _ _) = input post
+  bindFramebuffer Framebuffer $= fbo
+
+renderPostProcessing :: PostProcessing -> AnimationStyle -> IO ()
+renderPostProcessing post animStyle = do
+  depthFunc $= Nothing
+  case animStyle of
+    NormalStyle -> do
+      bindFramebuffer Framebuffer $= defaultFramebufferObject
+      renderSavebuffer $ input post
+    MotionBlur -> do
+      let (Savebuffer _ sceneFrame sceneDepth _ _) = input post
+      let outbuffer@(Savebuffer outFBO previousFrame _ _ _) = output post
+      bindFramebuffer Framebuffer $= outFBO
+      renderMotionBlurbuffer (motionBlur post) sceneFrame previousFrame 0.7
+      bindFramebuffer Framebuffer $= defaultFramebufferObject
+      renderSavebuffer outbuffer
+    PaintOver -> do
+      let (Savebuffer _ sceneFrame sceneDepth _ _) = input post
+      let outbuffer@(Savebuffer outFBO previousFrame _ _ _) = output post
+      bindFramebuffer Framebuffer $= outFBO
+      renderPaintOverbuffer (paintOver post) sceneDepth sceneFrame previousFrame
+      bindFramebuffer Framebuffer $= defaultFramebufferObject
+      renderSavebuffer outbuffer
 
 renderSavebuffer :: Savebuffer -> IO ()
 renderSavebuffer (Savebuffer _ text _ program quadVAO) = do
-  bindFramebuffer Framebuffer $= defaultFramebufferObject
-  textureBinding Texture2D $= Just text
-  clear [ ColorBuffer, DepthBuffer ]
   currentProgram $= Just program
+  activeTexture $= TextureUnit 0
+  textureBinding Texture2D $= Just text
   let (VAO qbo qbai qbn) = quadVAO
   bindVertexArrayObject $= Just qbo
   drawArrays Triangles qbai qbn
 
+renderMotionBlurbuffer :: Mixbuffer -> TextureObject -> TextureObject -> GLfloat -> IO ()
+renderMotionBlurbuffer (Mixbuffer _ _ _ program quadVAO) nextFrame lastFrame mix = do
+  activeTexture $= TextureUnit 0
+  textureBinding Texture2D $= Just nextFrame
+  activeTexture $= TextureUnit 1
+  textureBinding Texture2D $= Just lastFrame
 
+  currentProgram $= Just program
+
+  texFramebufferU <- GL.get $ uniformLocation program "texFramebuffer"
+  lastFrameU <- GL.get $ uniformLocation program "lastFrame"
+  mixRatioU <- GL.get $ uniformLocation program "mixRatio"
+
+
+  uniform texFramebufferU $= TextureUnit 0
+  uniform lastFrameU $= TextureUnit 1
+  uniform mixRatioU $= mix
+
+  let (VAO qbo qbai qbn) = quadVAO
+  bindVertexArrayObject $= Just qbo
+  drawArrays Triangles qbai qbn
+
+renderPaintOverbuffer :: Mixbuffer -> TextureObject -> TextureObject -> TextureObject -> IO ()
+renderPaintOverbuffer (Mixbuffer _ _ _ program quadVAO) depth nextFrame lastFrame = do
+  activeTexture $= TextureUnit 0
+  textureBinding Texture2D $= Just nextFrame
+  activeTexture $= TextureUnit 1
+  textureBinding Texture2D $= Just lastFrame
+  activeTexture $= TextureUnit 2
+  textureBinding Texture2D $= Just depth
+
+  currentProgram $= Just program
+
+  texFramebufferU <- GL.get $ uniformLocation program "texFramebuffer"
+  lastFrameU <- GL.get $ uniformLocation program "lastFrame"
+  depthU <- GL.get $ uniformLocation program "depth"
+
+
+  uniform texFramebufferU $= TextureUnit 0
+  uniform lastFrameU $= TextureUnit 1
+  uniform depthU $= TextureUnit 2
+
+  let (VAO qbo qbai qbn) = quadVAO
+  bindVertexArrayObject $= Just qbo
+  drawArrays Triangles qbai qbn
 
