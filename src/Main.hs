@@ -76,8 +76,10 @@ main = do
         exitSuccess
 
 
-renderScene :: VAO -> Mat44 GLfloat -> Program -> IO ()
-renderScene cube vpMat progId = do
+renderScene :: VAO -> Mat44 GLfloat -> PostProcessing -> Program -> IO ()
+renderScene cube vpMat post progId = do
+  usePostProcessing post
+  depthFunc $= Just Less
   Just t <- GLFW.getTime
   let time = realToFrac t
 
@@ -95,16 +97,14 @@ renderScene cube vpMat progId = do
   let (VAO bo bai bn) = cube
   bindVertexArrayObject $= Just bo
   drawArrays Triangles bai bn
+  renderPostProcessing post PaintOver
 
 
 display :: VAO -> Mat44 GLfloat -> Program -> PostProcessing -> GLFW.Window -> IO ()
 display cube vpMat progId post w = unless' (GLFW.windowShouldClose w) $
   do
 
-    usePostProcessing post
-    depthFunc $= Just Less
-    renderScene cube vpMat progId
-    renderPostProcessing post PaintOver
+    renderScene cube vpMat post progId
 
     GLFW.swapBuffers w
     GLFW.pollEvents
