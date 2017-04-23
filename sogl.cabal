@@ -19,6 +19,7 @@ executable sogl
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , bytestring
+                     , freetype2
                      , Vec
                      , GLFW-b
                      , OpenGL
