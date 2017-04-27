@@ -58,6 +58,7 @@ loadCharacter ff char = do
   runFreeType $ ft_Load_Glyph ff chNdx 0
   slot <- peek $ glyph ff
 
+  runFreeType $ ft_Render_Glyph slot ft_RENDER_MODE_NORMAL
   bmp <- peek $ GS.bitmap slot
   let
     bmpWidth = BM.width bmp
