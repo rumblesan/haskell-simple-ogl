@@ -11,6 +11,14 @@ vec3 x y z = x :. y :. z:. ()
 projectionMat :: Floating f => f -> f -> f -> f -> Mat44 f
 projectionMat near far fov aspect = perspective near far fov aspect
 
+orthoMat :: Floating f => f -> f -> f -> f -> Mat44 f
+orthoMat near far width height =
+  let
+    om = orthogonal near far (width :. height :. ())
+  in
+    om
+
+
 viewMat :: Floating a => Vec3 a -> Vec3 a -> Vec3 a -> Mat44 a
 viewMat = lookAt
 
@@ -28,5 +36,5 @@ lookAt eye target up = x :. y :. z :. h :. ()
 rotMat :: Float -> Float -> Float -> Mat44 Float
 rotMat xRot yRot zRot = rotationEuler $ xRot :. yRot :. zRot :. ()
 
-transMat :: Float -> Float -> Float -> Mat44 Float
+transMat :: Floating f => f -> f -> f -> Mat44 f
 transMat xT yT zT = translation $ vec3 xT yT zT

@@ -17,6 +17,7 @@ import GeometryBuffers
 import LoadShaders
 import Matrices
 import PostProcessing
+import TextRendering
 
 
 bool :: Bool -> a -> a -> a
@@ -60,24 +61,27 @@ main = do
         cvmi <- getWindowContextVersionMinor window
         cvr <- getWindowContextVersionRevision window
         print (cvma, cvmi, cvr)
+
+
         depthFunc $= Just Less
         program <- loadShaders [
             ShaderInfo VertexShader (FileSource "shaders/simple3d.vert"),
             ShaderInfo FragmentShader (FileSource "shaders/simple3d.frag")]
         post <- createPostProcessing (fromIntegral width) (fromIntegral height)
+        textRenderer <- createTextRenderer
         cube <- cubeVAO
         let proj = projectionMat 0.1 100 (pi/4) (fromIntegral width / fromIntegral height)
             view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
             vpMat = multmm proj view
         clearColor $= Color4 0.0 0.0 0.0 0.0
-        display cube vpMat program post window
+        display cube vpMat textRenderer program post window
         GLFW.destroyWindow window
         GLFW.terminate
         exitSuccess
 
 
-renderScene :: VAO -> Mat44 GLfloat -> PostProcessing -> Program -> IO ()
-renderScene cube vpMat post progId = do
+renderCubeScene :: VAO -> Mat44 GLfloat -> PostProcessing -> Program -> IO ()
+renderCubeScene cube vpMat post progId = do
   usePostProcessing post
   depthFunc $= Just Less
   Just t <- GLFW.getTime
@@ -99,13 +103,19 @@ renderScene cube vpMat post progId = do
   drawArrays Triangles bai bn
   renderPostProcessing post PaintOver
 
+renderTextScene :: TextRenderer -> String -> IO ()
+renderTextScene trender string = do
+  clearColor $= Color4 0.8 1.0 0.8 1.0
+  clear [ ColorBuffer ]
+  renderText trender string
 
-display :: VAO -> Mat44 GLfloat -> Program -> PostProcessing -> GLFW.Window -> IO ()
-display cube vpMat progId post w = unless' (GLFW.windowShouldClose w) $
+display :: VAO -> Mat44 GLfloat -> TextRenderer -> Program -> PostProcessing -> GLFW.Window -> IO ()
+display cube vpMat trender progId post w = unless' (GLFW.windowShouldClose w) $
   do
 
-    renderScene cube vpMat post progId
+    --renderCubeScene cube vpMat post progId
+    renderTextScene trender "Hello, World!"
 
     GLFW.swapBuffers w
     GLFW.pollEvents
-    display cube vpMat progId post w
+    display cube vpMat trender progId post w
