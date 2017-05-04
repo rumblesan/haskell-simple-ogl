@@ -59,11 +59,14 @@ loadCharacter ff char = do
   slot <- peek $ glyph ff
 
   runFreeType $ ft_Render_Glyph slot ft_RENDER_MODE_NORMAL
+
   bmp <- peek $ GS.bitmap slot
-  let
-    bmpWidth = BM.width bmp
-    bmpHeight = BM.rows bmp
   (FT_Vector advx advy) <- peek $ GS.advance slot
+  let
+    bmpWidth = fromIntegral $ BM.width bmp
+    bmpHeight = fromIntegral $ BM.rows bmp
+    advance = fromIntegral advx `div` 64
+  print ["advance", show advance]
 
   text <- genObjectName
   textureBinding Texture2D $= Just text
@@ -75,5 +78,5 @@ loadCharacter ff char = do
   textureWrapMode Texture2D S $= (Repeated, ClampToEdge)
   textureWrapMode Texture2D T $= (Repeated, ClampToEdge)
   textureBinding Texture2D $= Nothing
-  return $ Character char 36 36 36 text
+  return $ Character char bmpWidth bmpHeight advance text
 

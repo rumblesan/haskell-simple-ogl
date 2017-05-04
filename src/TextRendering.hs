@@ -123,19 +123,24 @@ renderCharacter renderer (Character c width height adv text) x y =
     charVerts = [
       xPos, yPos + h,      0.0, 0.0,
       xPos, yPos,          0.0, 1.0,
-      xPos + w, yPos + h,  1.0, 1.0,
+      xPos + w, yPos + h,  1.0, 0.0,
 
-      xPos + w, yPos + h,  0.0, 0.0,
-      xPos, yPos,          1.0, 1.0,
-      xPos + w, yPos,      0.0, 0.0] :: [GLfloat]
+      xPos + w, yPos + h,  1.0, 0.0,
+      xPos, yPos,          0.0, 1.0,
+      xPos + w, yPos,      1.0, 1.0] :: [GLfloat]
     vertSize = sizeOf (head charVerts)
     numVerts = length charVerts
     size = fromIntegral (numVerts * vertSize)
     (CharQuad arrayObject arrayBuffer firstIndex numTriangles) = characterQuad renderer
   in
     do
+      activeTexture $= TextureUnit 0
       bindVertexArrayObject $= Just arrayObject
       bindBuffer ArrayBuffer $= Just arrayBuffer
+      textureBinding Texture2D $= Just text
+      textColourU <- GL.get $ uniformLocation (program renderer) "textColor"
+      let c = Color3 1.0 0.0 0.0 :: Color3 GLfloat
+      uniform textColourU $= c
       (UniformLocation projU) <- GL.get $ uniformLocation (program renderer) "projection"
       with (pMatrix renderer)
         $ GLRaw.glUniformMatrix4fv projU 1 (fromBool True)
