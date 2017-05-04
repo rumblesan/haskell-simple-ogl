@@ -20,6 +20,8 @@ import Graphics.Rendering.FreeType.Internal.BitmapSize
 
 import Graphics.Rendering.OpenGL as GL
 
+import ErrorHandling (printErrors)
+
 data Character = Character Char Int Int Int GL.TextureObject deriving Eq
 
 instance Show Character where
@@ -66,17 +68,20 @@ loadCharacter ff char = do
     bmpWidth = fromIntegral $ BM.width bmp
     bmpHeight = fromIntegral $ BM.rows bmp
     advance = fromIntegral advx `div` 64
-  print ["advance", show advance]
 
+  rowAlignment Unpack $= 1
   text <- genObjectName
   textureBinding Texture2D $= Just text
-  GL.textureFilter GL.Texture2D $= ((GL.Linear', Nothing), GL.Linear')
+  printErrors
+
   let pd = PixelData Red UnsignedByte (BM.buffer bmp)
   let tSize = TextureSize2D (fromIntegral bmpWidth) (fromIntegral bmpHeight)
   texImage2D Texture2D NoProxy 0 R8 tSize 0 pd
+
   textureFilter   Texture2D   $= ((Linear', Nothing), Linear')
   textureWrapMode Texture2D S $= (Repeated, ClampToEdge)
   textureWrapMode Texture2D T $= (Repeated, ClampToEdge)
   textureBinding Texture2D $= Nothing
+  printErrors
   return $ Character char bmpWidth bmpHeight advance text
 
