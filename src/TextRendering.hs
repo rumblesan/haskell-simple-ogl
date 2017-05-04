@@ -139,6 +139,8 @@ renderCharacter renderer (Character c width height adv text) x y =
       bindBuffer ArrayBuffer $= Just arrayBuffer
       textureBinding Texture2D $= Just text
       textColourU <- GL.get $ uniformLocation (program renderer) "textColor"
+      charTextU <- GL.get $ uniformLocation (program renderer) "text"
+      uniform charTextU $= TextureUnit 0
       let c = Color3 1.0 0.0 0.0 :: Color3 GLfloat
       uniform textColourU $= c
       (UniformLocation projU) <- GL.get $ uniformLocation (program renderer) "projection"
