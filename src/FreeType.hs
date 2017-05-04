@@ -65,9 +65,6 @@ loadCharacter ff char = do
     bmpHeight = BM.rows bmp
   (FT_Vector advx advy) <- peek $ GS.advance slot
 
-  print (bmpWidth, bmpHeight)
-  print advx
-  print advy
   text <- genObjectName
   textureBinding Texture2D $= Just text
   GL.textureFilter GL.Texture2D $= ((GL.Linear', Nothing), GL.Linear')
