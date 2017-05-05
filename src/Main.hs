@@ -105,19 +105,13 @@ renderCubeScene cube vpMat post progId = do
   drawArrays Triangles bai bn
   renderPostProcessing post PaintOver
 
-renderTextScene :: TextRenderer -> String -> IO ()
-renderTextScene trender string = do
-  clearColor $= Color4 0.8 1.0 0.8 1.0
-  clear [ ColorBuffer ]
-  renderText trender string
-
 display :: VAO -> Mat44 GLfloat -> TextRenderer -> TextureScene -> Program -> PostProcessing -> GLFW.Window -> IO ()
 display cube vpMat trender textscene progId post w = unless' (GLFW.windowShouldClose w) $
   do
 
     --renderCubeScene cube vpMat post progId
-    --renderTextScene trender "Hello, World!"
-    renderTextureScene textscene
+    renderTextScene trender "Hello, World!"
+    --renderTextureScene textscene
 
     GLFW.swapBuffers w
     GLFW.pollEvents

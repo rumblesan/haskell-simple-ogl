@@ -2,6 +2,7 @@ module TextRendering (
     createTextRenderer
   , renderText
   , renderCharacter
+  , renderTextScene
   , TextRenderer
 ) where
 
@@ -26,6 +27,7 @@ import Data.Vec (Mat44)
 import Matrices (orthoMat)
 
 import ErrorHandling (printErrors)
+import TextureRenderer (loadTexture)
 
 
 data CharQuad = CharQuad VertexArrayObject BufferObject ArrayIndex NumArrayIndices deriving (Show, Eq)
@@ -36,10 +38,11 @@ data TextRenderer = TextRenderer {
   , pMatrix :: Mat44 GLfloat
   , program :: Program
   , characterQuad :: CharQuad
+  , testTexture :: TextureObject
 } deriving (Show, Eq)
 
 getCharacter :: TextRenderer -> Char -> Character
-getCharacter (TextRenderer charMap _ _ _ _) c = charMap M.! c
+getCharacter (TextRenderer charMap _ _ _ _ _) c = charMap M.! c
 
 createAllCharTextures :: FT_Face -> IO (M.Map Char Character)
 createAllCharTextures face =
@@ -92,18 +95,16 @@ createTextRenderer = do
     ShaderInfo VertexShader (FileSource "shaders/textrenderer.vert"),
     ShaderInfo FragmentShader (FileSource "shaders/textrenderer.frag")]
   characters <- createAllCharTextures face
-  return $ TextRenderer characters charWidth projMat program cq
+  testText <- loadTexture "images/simple_texture.bmp"
+  return $ TextRenderer characters charWidth projMat program cq testText
 
 renderText :: TextRenderer -> String -> IO ()
 renderText renderer strings = do
-  depthFunc $= Nothing
-  cullFace $= Nothing
-  bindFramebuffer Framebuffer $= defaultFramebufferObject
   currentProgram $= Just (program renderer)
   let
     chars = getCharacter renderer <$> strings
-    xStart = -100 
-    yStart = -100
+    xStart = 0
+    yStart = 0
   foldM_ (\xp c -> 
     do
       renderCharacter renderer c xp yStart
@@ -135,14 +136,15 @@ renderCharacter renderer (Character c width height adv text) x y =
   in
     do
       activeTexture $= TextureUnit 0
+      textureBinding Texture2D $= Just text
+
       bindVertexArrayObject $= Just arrayObject
       bindBuffer ArrayBuffer $= Just arrayBuffer
-      textureBinding Texture2D $= Just text
+
       textColourU <- GL.get $ uniformLocation (program renderer) "textColor"
-      charTextU <- GL.get $ uniformLocation (program renderer) "text"
-      uniform charTextU $= TextureUnit 0
       let c = Color3 1.0 0.0 0.0 :: Color3 GLfloat
       uniform textColourU $= c
+
       (UniformLocation projU) <- GL.get $ uniformLocation (program renderer) "projection"
       with (pMatrix renderer)
         $ GLRaw.glUniformMatrix4fv projU 1 (fromBool True)
@@ -151,5 +153,17 @@ renderCharacter renderer (Character c width height adv text) x y =
         bufferSubData ArrayBuffer WriteToBuffer 0 size ptr
       drawArrays Triangles firstIndex numTriangles
       printErrors
+
+renderTextScene :: TextRenderer -> String -> IO ()
+renderTextScene trender string = do
+  blend $= Enabled
+  blendEquationSeparate $= (FuncAdd, FuncAdd)
+  blendFuncSeparate $= ((SrcAlpha, OneMinusSrcAlpha), (One, Zero))
+  cullFace $= Nothing
+  depthFunc $= Nothing
+  clearColor $= Color4 1.0 1.0 1.0 1.0
+  clear [ ColorBuffer ]
+  bindFramebuffer Framebuffer $= defaultFramebufferObject
+  renderText trender string
 
 
