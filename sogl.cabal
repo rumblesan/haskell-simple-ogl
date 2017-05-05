@@ -23,6 +23,7 @@ executable sogl
                      , freetype2
                      , Vec
                      , GLFW-b
+                     , bmp
                      , OpenGL
                      , OpenGLRaw
   other-modules:       GeometryBuffers
@@ -30,6 +31,7 @@ executable sogl
                      , Matrices
                      , PostProcessing
                      , TextRendering
+                     , TextureRenderer
                      , FreeType
                      , ErrorHandling
 

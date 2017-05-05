@@ -18,6 +18,7 @@ import LoadShaders
 import Matrices
 import PostProcessing
 import TextRendering
+import TextureRenderer
 
 
 bool :: Bool -> a -> a -> a
@@ -69,12 +70,13 @@ main = do
             ShaderInfo FragmentShader (FileSource "shaders/simple3d.frag")]
         post <- createPostProcessing (fromIntegral width) (fromIntegral height)
         textRenderer <- createTextRenderer
+        textureScene <- createTextureScene
         cube <- cubeVAO
         let proj = projectionMat 0.1 100 (pi/4) (fromIntegral width / fromIntegral height)
             view = viewMat (vec3 4 3 3) (vec3 0 0 0) (vec3 0 1 0)
             vpMat = multmm proj view
         clearColor $= Color4 0.0 0.0 0.0 0.0
-        display cube vpMat textRenderer program post window
+        display cube vpMat textRenderer textureScene program post window
         GLFW.destroyWindow window
         GLFW.terminate
         exitSuccess
@@ -109,13 +111,14 @@ renderTextScene trender string = do
   clear [ ColorBuffer ]
   renderText trender string
 
-display :: VAO -> Mat44 GLfloat -> TextRenderer -> Program -> PostProcessing -> GLFW.Window -> IO ()
-display cube vpMat trender progId post w = unless' (GLFW.windowShouldClose w) $
+display :: VAO -> Mat44 GLfloat -> TextRenderer -> TextureScene -> Program -> PostProcessing -> GLFW.Window -> IO ()
+display cube vpMat trender textscene progId post w = unless' (GLFW.windowShouldClose w) $
   do
 
     --renderCubeScene cube vpMat post progId
-    renderTextScene trender "Hello, World!"
+    --renderTextScene trender "Hello, World!"
+    renderTextureScene textscene
 
     GLFW.swapBuffers w
     GLFW.pollEvents
-    display cube vpMat trender progId post w
+    display cube vpMat trender textscene progId post w
