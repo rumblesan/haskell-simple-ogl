@@ -7,6 +7,8 @@ import Foreign.Ptr
 import Foreign.C.String
 
 import Control.Monad
+import qualified Data.Map.Strict as M
+import qualified Data.Char as C
 
 import Graphics.Rendering.FreeType.Internal
 import Graphics.Rendering.FreeType.Internal.Library
@@ -23,6 +25,7 @@ import Graphics.Rendering.OpenGL as GL
 import ErrorHandling (printErrors)
 
 data Character = Character Char Int Int Int GL.TextureObject deriving Eq
+type CharacterMap = M.Map Char Character
 
 instance Show Character where
   show (Character c _ _ _ _) = show c
@@ -46,13 +49,20 @@ fontFace ft fp = withCString fp $ \str ->
 setFaceSize :: FT_Face -> Int -> IO ()
 setFaceSize ff px = runFreeType $ ft_Set_Pixel_Sizes ff (fromIntegral px) 0
 
-glyphFormatString :: FT_Glyph_Format -> String
-glyphFormatString fmt
-    | fmt == ft_GLYPH_FORMAT_COMPOSITE = "ft_GLYPH_FORMAT_COMPOSITE"
-    | fmt == ft_GLYPH_FORMAT_OUTLINE = "ft_GLYPH_FORMAT_OUTLINE"
-    | fmt == ft_GLYPH_FORMAT_PLOTTER = "ft_GLYPH_FORMAT_PLOTTER"
-    | fmt == ft_GLYPH_FORMAT_BITMAP = "ft_GLYPH_FORMAT_BITMAP"
-    | otherwise = "ft_GLYPH_FORMAT_NONE"
+loadFontCharMap :: String -> Int -> IO CharacterMap
+loadFontCharMap fontPath fontSize =
+  let
+    chars = C.chr <$> [0..127]
+  in
+    do
+      ft2 <- freeType
+      face <- fontFace ft2 fontPath
+      setFaceSize face fontSize
+      GL.rowAlignment GL.Pack $= 1
+      c <- sequence $ M.fromList $ fmap (\c -> (c, loadCharacter face c)) chars
+      ft_Done_Face face
+      ft_Done_FreeType ft2
+      return c
 
 loadCharacter :: FT_Face -> Char -> IO Character
 loadCharacter ff char = do
