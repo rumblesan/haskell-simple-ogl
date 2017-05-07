@@ -2,9 +2,11 @@ module TextRendering (
     createTextRenderer
   , renderText
   , renderCharacter
-  , renderTextScene
+  , resizeTextRendererScreen
+  , changeTextColour
   , TextRenderer
 ) where
+
 
 import Control.Monad
 
@@ -14,44 +16,32 @@ import Foreign.Storable
 import Foreign.Ptr
 
 import qualified Data.Map.Strict as M
-import qualified Data.Char as C
 
 import Graphics.Rendering.OpenGL as GL
 import GeometryBuffers (bufferOffset)
 import LoadShaders
-import FreeType (Character(..), freeType, fontFace, setFaceSize, loadCharacter)
-import Graphics.Rendering.FreeType.Internal.Face (FT_Face)
+import FreeType (CharacterMap, Character(..), loadFontCharMap)
 import qualified Graphics.GL as GLRaw
 
 import Data.Vec (Mat44)
-import Matrices (orthoMat)
 
 import ErrorHandling (printErrors)
-import TextureRenderer (loadTexture)
 
 
 data CharQuad = CharQuad VertexArrayObject BufferObject ArrayIndex NumArrayIndices deriving (Show, Eq)
 
 data TextRenderer = TextRenderer {
-    characters :: M.Map Char Character
-  , charWidth :: Int
+    characterMap :: CharacterMap
+  , charSize :: Int
   , pMatrix :: Mat44 GLfloat
   , program :: Program
   , characterQuad :: CharQuad
-  , testTexture :: TextureObject
+  , textColour :: Color3 GLfloat
 } deriving (Show, Eq)
 
+-- TODO - better error handling
 getCharacter :: TextRenderer -> Char -> Character
 getCharacter (TextRenderer charMap _ _ _ _ _) c = charMap M.! c
-
-createAllCharTextures :: FT_Face -> IO (M.Map Char Character)
-createAllCharTextures face =
-  let
-    chars = C.chr <$> [0..127]
-  in
-    do
-      GL.rowAlignment GL.Pack $= 1
-      sequence $ M.fromList $ fmap (\c -> (c, loadCharacter face c)) chars
 
 charQuad :: IO CharQuad
 charQuad = do
@@ -83,34 +73,39 @@ drawCharQuad (CharQuad arrayObject _ firstIndex numTriangles) = do
   bindVertexArrayObject $= Just arrayObject
   drawArrays Triangles firstIndex numTriangles
 
-createTextRenderer :: IO TextRenderer
-createTextRenderer = do
-  let projMat = orthoMat 0.1 100 640 480
-  let charWidth = 36
-  ft2 <- freeType
-  face <- fontFace ft2 "fonts/arial.ttf"
-  setFaceSize face charWidth
+createTextRenderer :: String -> Int -> Color3 GLfloat -> Mat44 GLfloat -> IO TextRenderer
+createTextRenderer fontPath charSize textColour projectionMatrix = do
   cq <- charQuad
   program <- loadShaders [
     ShaderInfo VertexShader (FileSource "shaders/textrenderer.vert"),
     ShaderInfo FragmentShader (FileSource "shaders/textrenderer.frag")]
-  characters <- createAllCharTextures face
-  testText <- loadTexture "images/simple_texture.bmp"
-  return $ TextRenderer characters charWidth projMat program cq testText
+  characters <- loadFontCharMap fontPath charSize
+  return $ TextRenderer characters charSize projectionMatrix program cq textColour
 
-renderText :: TextRenderer -> String -> IO ()
-renderText renderer strings = do
+resizeTextRendererScreen :: Mat44 GLfloat -> TextRenderer -> TextRenderer
+resizeTextRendererScreen orthoMatrix trender =
+  trender {
+    pMatrix = orthoMatrix
+  }
+
+changeTextColour :: Color3 GLfloat -> TextRenderer -> TextRenderer
+changeTextColour newColour trender =
+  trender {
+    textColour = newColour
+  }
+
+renderText :: Int -> Int -> TextRenderer -> String -> IO ()
+renderText xpos ypos renderer strings = do
   currentProgram $= Just (program renderer)
-  let
-    chars = getCharacter renderer <$> strings
-    xStart = 0
-    yStart = 0
-  foldM_ (\xp c -> 
-    do
-      renderCharacter renderer c xp yStart
-      let (Character _ _ _ adv _) = c
-      return $ xp + adv
-    ) xStart chars
+  foldM_ (\(xp, yp) c ->
+    case c of
+      '\n' -> return (xpos, yp + charSize renderer)
+      _ ->
+        do
+          let char@(Character _ _ _ adv _) = getCharacter renderer c
+          renderCharacter renderer char xp yp
+          return (xp + adv, yp)
+    ) (xpos, ypos) strings
   printErrors
 
 
@@ -142,8 +137,7 @@ renderCharacter renderer (Character c width height adv text) x y =
       bindBuffer ArrayBuffer $= Just arrayBuffer
 
       textColourU <- GL.get $ uniformLocation (program renderer) "textColor"
-      let c = Color3 1.0 0.0 0.0 :: Color3 GLfloat
-      uniform textColourU $= c
+      uniform textColourU $= textColour renderer
 
       (UniformLocation projU) <- GL.get $ uniformLocation (program renderer) "projection"
       with (pMatrix renderer)
@@ -153,17 +147,4 @@ renderCharacter renderer (Character c width height adv text) x y =
         bufferSubData ArrayBuffer WriteToBuffer 0 size ptr
       drawArrays Triangles firstIndex numTriangles
       printErrors
-
-renderTextScene :: TextRenderer -> String -> IO ()
-renderTextScene trender string = do
-  blend $= Enabled
-  blendEquationSeparate $= (FuncAdd, FuncAdd)
-  blendFuncSeparate $= ((SrcAlpha, OneMinusSrcAlpha), (One, Zero))
-  cullFace $= Nothing
-  depthFunc $= Nothing
-  clearColor $= Color4 1.0 1.0 1.0 1.0
-  clear [ ColorBuffer ]
-  bindFramebuffer Framebuffer $= defaultFramebufferObject
-  renderText trender string
-
 
