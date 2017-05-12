@@ -19,10 +19,10 @@ orthoMat near far width height =
     om
 
 
-viewMat :: Floating a => Vec3 a -> Vec3 a -> Vec3 a -> Mat44 a
+viewMat :: Floating f => Vec3 f -> Vec3 f -> Vec3 f -> Mat44 f
 viewMat = lookAt
 
-lookAt :: Floating a => Vec3 a -> Vec3 a -> Vec3 a -> Mat44 a
+lookAt :: Floating f => Vec3 f -> Vec3 f -> Vec3 f -> Mat44 f
 lookAt eye target up = x :. y :. z :. h :. ()
   where
     forward = normalize $ target - eye
@@ -33,7 +33,7 @@ lookAt eye target up = x :. y :. z :. h :. ()
     z = snoc (-forward) (dot forward eye)
     h = 0 :. 0 :. 0 :. 1 :. ()
 
-rotMat :: Float -> Float -> Float -> Mat44 Float
+rotMat :: Floating f => f -> f -> f -> Mat44 f
 rotMat xRot yRot zRot = rotationEuler $ xRot :. yRot :. zRot :. ()
 
 transMat :: Floating f => f -> f -> f -> Mat44 f
