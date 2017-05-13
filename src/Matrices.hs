@@ -11,12 +11,14 @@ vec3 x y z = x :. y :. z:. ()
 projectionMat :: Floating f => f -> f -> f -> f -> Mat44 f
 projectionMat near far fov aspect = perspective near far fov aspect
 
-orthoMat :: Floating f => f -> f -> f -> f -> Mat44 f
-orthoMat near far width height =
-  let
-    om = orthogonal near far (width :. height :. ())
-  in
-    om
+orthoMat :: Floating f => f -> f -> f -> f -> f -> f -> Mat44 f
+orthoMat left right top bottom near far =
+  matFromList [
+    2.0 / (right - left), 0, 0, 0,
+    0, 2.0 / (top - bottom), 0, 0,
+    0, 0, 2.0 / (far - near), (-(far + near))/(far - near),
+    0, 0, 0, 1
+  ]
 
 
 viewMat :: Floating f => Vec3 f -> Vec3 f -> Vec3 f -> Mat44 f
