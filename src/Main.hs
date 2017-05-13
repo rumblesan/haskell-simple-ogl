@@ -72,9 +72,9 @@ main = do
             ShaderInfo VertexShader (FileSource "shaders/simple3d.vert"),
             ShaderInfo FragmentShader (FileSource "shaders/simple3d.frag")]
         post <- createPostProcessing (fromIntegral width) (fromIntegral height)
-        let orthoMatrix = orthoMat front back (fromIntegral width) (fromIntegral height)
+        let textMat = textCoordMatrix 0 (fromIntegral width) 0 (fromIntegral height) front back
         let textColour = Color3 0.0 0.0 0.0 :: Color3 GLfloat
-        textRenderer <- createTextRenderer "fonts/arial.ttf" charSize textColour orthoMatrix
+        textRenderer <- createTextRenderer "fonts/arial.ttf" charSize textColour textMat
         textureScene <- createTextureScene
         cube <- cubeVAO
         let proj = projectionMat front back (pi/4) (fromIntegral width / fromIntegral height)
@@ -120,7 +120,7 @@ renderTextScene trender string = do
   clearColor $= Color4 1.0 1.0 1.0 1.0
   clear [ ColorBuffer ]
   bindFramebuffer Framebuffer $= defaultFramebufferObject
-  renderText 0 0 trender string
+  renderText 100 100 trender string
 
 display :: VAO -> Mat44 GLfloat -> TextRenderer -> TextureScene -> Program -> PostProcessing -> GLFW.Window -> IO ()
 display cube vpMat trender textscene progId post w = unless' (GLFW.windowShouldClose w) $

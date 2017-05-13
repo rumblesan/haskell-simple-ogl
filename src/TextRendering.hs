@@ -4,6 +4,7 @@ module TextRendering (
   , renderCharacter
   , resizeTextRendererScreen
   , changeTextColour
+  , textCoordMatrix
   , TextRenderer
 ) where
 
@@ -23,7 +24,8 @@ import LoadShaders
 import FreeType (CharacterMap, Character(..), loadFontCharMap)
 import qualified Graphics.GL as GLRaw
 
-import Data.Vec (Mat44)
+import Data.Vec (Mat44, multmm)
+import Matrices
 
 import ErrorHandling (printErrors)
 
@@ -38,6 +40,14 @@ data TextRenderer = TextRenderer {
   , characterQuad :: CharQuad
   , textColour :: Color3 GLfloat
 } deriving (Show, Eq)
+
+textCoordMatrix :: Floating f => f -> f -> f -> f -> f -> f -> Mat44 f
+textCoordMatrix left right top bottom near far =
+  let
+    o = orthoMat left right top bottom near far
+    t = transMat (-1) 1 0
+  in
+    multmm t o
 
 -- TODO - better error handling
 getCharacter :: TextRenderer -> Char -> Character
@@ -114,16 +124,19 @@ renderCharacter renderer (Character c width height adv text) x y =
   let
     xPos = fromIntegral x
     yPos = fromIntegral y
+    lbottom = yPos + fromIntegral (charSize renderer) :: GLfloat
+    ltop = lbottom - fromIntegral height :: GLfloat
     w = fromIntegral width
     h = fromIntegral height
+    top = yPos + fromIntegral (charSize renderer) - fromIntegral height
     charVerts = [
-      xPos, yPos + h,      0.0, 0.0,
-      xPos, yPos,          0.0, 1.0,
-      xPos + w, yPos + h,  1.0, 0.0,
+      xPos, ltop,         0.0, 0.0,
+      xPos, lbottom,      0.0, 1.0,
+      xPos + w, ltop,     1.0, 0.0,
 
-      xPos + w, yPos + h,  1.0, 0.0,
-      xPos, yPos,          0.0, 1.0,
-      xPos + w, yPos,      1.0, 1.0] :: [GLfloat]
+      xPos, lbottom,      0.0, 1.0,
+      xPos + w, lbottom,  1.0, 1.0,
+      xPos + w, ltop,     1.0, 0.0] :: [GLfloat]
     vertSize = sizeOf (head charVerts)
     numVerts = length charVerts
     size = fromIntegral (numVerts * vertSize)
